@@ -46054,15 +46054,323 @@
     "version": "0.8.20+commit.a1b79de6.Emscripten.clang"
   },
   "networks": {
-    "1757506375377": {
+    "11155111": {
       "events": {},
       "links": {},
-      "address": "0xc1A93ea13500fBD6376D317bcc4c0B3C7A8395B3",
-      "transactionHash": "0x1958c379506cef256dc449e641396d8fe81824b66c349d57af96dca4da5c834a"
+      "address": "0x2204ee1b9C9795a6a8305698ae42771D8Ab6Cde4",
+      "transactionHash": "0x1962d82bf2a2cf54b036009923695f74f102ee013efeae526f05547b0e7c26ad"
+    },
+    "1757506375377": {
+      "events": {
+        "0xd42d0d1161e5eca3eb3f04fa4f199b77563d2000e95b1c5f99838d90ebc8a281": {
+          "anonymous": false,
+          "inputs": [
+            {
+              "indexed": true,
+              "internalType": "uint256",
+              "name": "courseId",
+              "type": "uint256"
+            },
+            {
+              "indexed": true,
+              "internalType": "address",
+              "name": "student",
+              "type": "address"
+            }
+          ],
+          "name": "AppliedToCourse",
+          "type": "event"
+        },
+        "0x44978637513f4e736c4e6fce159848173cf0cb98b9a50db749a76ce7f78942f3": {
+          "anonymous": false,
+          "inputs": [
+            {
+              "indexed": true,
+              "internalType": "uint256",
+              "name": "courseId",
+              "type": "uint256"
+            },
+            {
+              "indexed": false,
+              "internalType": "uint256",
+              "name": "amount",
+              "type": "uint256"
+            }
+          ],
+          "name": "BonusDistributed",
+          "type": "event"
+        },
+        "0x5bc083177651ab30489541022f7c6061da5d7d2157ea382267ea584eac645782": {
+          "anonymous": false,
+          "inputs": [
+            {
+              "indexed": true,
+              "internalType": "uint256",
+              "name": "courseId",
+              "type": "uint256"
+            },
+            {
+              "indexed": true,
+              "internalType": "address",
+              "name": "student",
+              "type": "address"
+            }
+          ],
+          "name": "CourseCompleted",
+          "type": "event"
+        },
+        "0xdc345ce0e2a4d765324fa5ed840f381bb0fd522e1419f2b727849f8e55d0fbc6": {
+          "anonymous": false,
+          "inputs": [
+            {
+              "indexed": true,
+              "internalType": "uint256",
+              "name": "courseId",
+              "type": "uint256"
+            },
+            {
+              "indexed": false,
+              "internalType": "string",
+              "name": "title",
+              "type": "string"
+            },
+            {
+              "indexed": false,
+              "internalType": "uint256",
+              "name": "price",
+              "type": "uint256"
+            },
+            {
+              "indexed": false,
+              "internalType": "address[]",
+              "name": "teachers",
+              "type": "address[]"
+            }
+          ],
+          "name": "CourseCreated",
+          "type": "event"
+        },
+        "0xc411c97a1db41250ce4fb55fc0218b3ff640b65c54edaec827e50b7e606f334c": {
+          "anonymous": false,
+          "inputs": [
+            {
+              "indexed": true,
+              "internalType": "uint256",
+              "name": "courseId",
+              "type": "uint256"
+            }
+          ],
+          "name": "CourseRemoved",
+          "type": "event"
+        },
+        "0x60e47d279eed4aefa02ed886993ab9dd1a33516a7a645b776884fd1f42d6c72c": {
+          "anonymous": false,
+          "inputs": [
+            {
+              "indexed": true,
+              "internalType": "uint256",
+              "name": "courseId",
+              "type": "uint256"
+            },
+            {
+              "indexed": true,
+              "internalType": "address",
+              "name": "student",
+              "type": "address"
+            }
+          ],
+          "name": "EnrollmentConfirmed",
+          "type": "event"
+        },
+        "0x8be0079c531659141344cd1fd0a4f28419497f9722a3daafe3b4186f6b6457e0": {
+          "anonymous": false,
+          "inputs": [
+            {
+              "indexed": true,
+              "internalType": "address",
+              "name": "previousOwner",
+              "type": "address"
+            },
+            {
+              "indexed": true,
+              "internalType": "address",
+              "name": "newOwner",
+              "type": "address"
+            }
+          ],
+          "name": "OwnershipTransferred",
+          "type": "event"
+        },
+        "0x5647290e9e36406ab979be83115935ef2a2548d08015da9d1774685e26876e2e": {
+          "anonymous": false,
+          "inputs": [
+            {
+              "indexed": true,
+              "internalType": "uint256",
+              "name": "id",
+              "type": "uint256"
+            },
+            {
+              "indexed": true,
+              "internalType": "address",
+              "name": "candidate",
+              "type": "address"
+            },
+            {
+              "indexed": false,
+              "internalType": "enum DAOCoursePlatform.Role",
+              "name": "roleToAdd",
+              "type": "uint8"
+            },
+            {
+              "indexed": false,
+              "internalType": "uint256",
+              "name": "start",
+              "type": "uint256"
+            },
+            {
+              "indexed": false,
+              "internalType": "uint256",
+              "name": "end",
+              "type": "uint256"
+            }
+          ],
+          "name": "ProposalCreated",
+          "type": "event"
+        },
+        "0x948f4a9cd986f1118c3fbd459f7a22b23c0693e1ca3ef06a6a8be5aa7d39cc03": {
+          "anonymous": false,
+          "inputs": [
+            {
+              "indexed": true,
+              "internalType": "uint256",
+              "name": "proposalId",
+              "type": "uint256"
+            },
+            {
+              "indexed": false,
+              "internalType": "bool",
+              "name": "success",
+              "type": "bool"
+            }
+          ],
+          "name": "ProposalExecuted",
+          "type": "event"
+        },
+        "0xdcf612e1493d5a844feb8437e542e7896f50e263a38d52c861556bbc5c838276": {
+          "anonymous": false,
+          "inputs": [
+            {
+              "indexed": true,
+              "internalType": "uint256",
+              "name": "courseId",
+              "type": "uint256"
+            },
+            {
+              "indexed": true,
+              "internalType": "address",
+              "name": "student",
+              "type": "address"
+            },
+            {
+              "indexed": true,
+              "internalType": "address",
+              "name": "teacher",
+              "type": "address"
+            },
+            {
+              "indexed": false,
+              "internalType": "uint8",
+              "name": "ratingValue",
+              "type": "uint8"
+            }
+          ],
+          "name": "RatingGiven",
+          "type": "event"
+        },
+        "0xb179a28bfc6609aadb5409b3c75d29630b921af81a6b6cc8881a2dde471e6b86": {
+          "anonymous": false,
+          "inputs": [
+            {
+              "indexed": true,
+              "internalType": "uint256",
+              "name": "courseId",
+              "type": "uint256"
+            },
+            {
+              "indexed": true,
+              "internalType": "address",
+              "name": "teacher",
+              "type": "address"
+            },
+            {
+              "indexed": true,
+              "internalType": "address",
+              "name": "student",
+              "type": "address"
+            },
+            {
+              "indexed": false,
+              "internalType": "bool",
+              "name": "support",
+              "type": "bool"
+            }
+          ],
+          "name": "TeacherVotedOnEnrollment",
+          "type": "event"
+        },
+        "0x6bce7f013e73cb844d353c7d5bb67ee29f888be4311ad86fa3cfbdb63c70ad80": {
+          "anonymous": false,
+          "inputs": [
+            {
+              "indexed": true,
+              "internalType": "address",
+              "name": "to",
+              "type": "address"
+            },
+            {
+              "indexed": false,
+              "internalType": "uint256",
+              "name": "amount",
+              "type": "uint256"
+            }
+          ],
+          "name": "TreasuryPayout",
+          "type": "event"
+        },
+        "0xf2913dbe661ee2acc4a046d8fbcdc792373bda34c41c6086484b5345e5785e5f": {
+          "anonymous": false,
+          "inputs": [
+            {
+              "indexed": true,
+              "internalType": "uint256",
+              "name": "proposalId",
+              "type": "uint256"
+            },
+            {
+              "indexed": true,
+              "internalType": "address",
+              "name": "voter",
+              "type": "address"
+            },
+            {
+              "indexed": false,
+              "internalType": "bool",
+              "name": "support",
+              "type": "bool"
+            }
+          ],
+          "name": "Voted",
+          "type": "event"
+        }
+      },
+      "links": {},
+      "address": "0xa3f9518eE3e0BC6aBb28c5Dd662E10FB756dfdf9",
+      "transactionHash": "0x22c28d07c497745db41629bd4dd76d6859cfb8c9ed8f46eccaf468a912a7d899"
     }
   },
   "schemaVersion": "3.4.16",
-  "updatedAt": "2025-09-10T12:14:50.163Z",
+  "updatedAt": "2025-09-10T15:10:52.550Z",
   "networkType": "ethereum",
   "devdoc": {
     "errors": {

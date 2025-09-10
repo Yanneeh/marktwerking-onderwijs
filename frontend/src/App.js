@@ -1,6 +1,8 @@
 import React, { useEffect, useState, useCallback } from "react";
 import { ethers } from "ethers";
-import contractAbi from "../abi/DAOCoursePlatform.json";
+import contractAbi from "./abi/DAOCoursePlatform.json";
+
+import './index.css';
 
 // This file is a single-file React dashboard for the DAOCoursePlatform contract.
 // It implements:
@@ -17,9 +19,35 @@ import contractAbi from "../abi/DAOCoursePlatform.json";
 // - This uses ethers v6. Adjust if you use v5.
 // - Styling is minimal; adapt to your UI library (Tailwind/shadcn used in the project skeleton).
 
-const CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_DAO_CONTRACT || "0xYourDeployedContractAddressHere";
+const CONTRACT_ADDRESS = process.env.REACT_APP_DAO_CONTRACT;
+const TOKEN_ADDRESS = process.env.REACT_APP_TOKEN_ADDRESS; // Example ERC20 token address for payments
+
 
 export default function DAODashboard() {
+  // Fetch ERC20 token balance for treasury (helper)
+  const fetchTreasuryTokenBalance = useCallback(async (prov, tokenAddr) => {
+    if (tokenAddr && ethers.isAddress(tokenAddr)) {
+      try {
+        const tokenContract = new ethers.Contract(tokenAddr, [
+          "function balanceOf(address) view returns (uint256)",
+          "function symbol() view returns (string)"
+        ], prov);
+        const bal = await tokenContract.balanceOf(CONTRACT_ADDRESS);
+        let symbol = "HUT";
+        try {
+          symbol = await tokenContract.symbol();
+        } catch {}
+        setTreasuryTokenBalance(`${ethers.formatUnits(bal, 18)} ${symbol}`);
+      } catch (err) {
+        setTreasuryTokenBalance(null);
+        console.warn("Could not fetch ERC20 treasury balance", err);
+      }
+    } else {
+      setTreasuryTokenBalance(null);
+    }
+  }, []);
+  const [treasuryTokenBalance, setTreasuryTokenBalance] = useState(null);
+  const [treasuryBalance, setTreasuryBalance] = useState(null);
   const [provider, setProvider] = useState(null);
   const [signer, setSigner] = useState(null);
   const [account, setAccount] = useState("");
@@ -39,7 +67,6 @@ export default function DAODashboard() {
 
   const [selectedCourse, setSelectedCourse] = useState(null);
   const [enrollmentStatus, setEnrollmentStatus] = useState({}); // courseId -> enrollment info
-
   const [tokenAddress, setTokenAddress] = useState(null);
 
   // Helper: connect wallet
@@ -53,6 +80,30 @@ export default function DAODashboard() {
     setProvider(prov);
     setSigner(signer);
     setAccount(address);
+
+    // Fetch treasury balance (contract ETH balance)
+    try {
+      const bal = await prov.getBalance(CONTRACT_ADDRESS);
+      setTreasuryBalance(ethers.formatEther(bal));
+    } catch (err) {
+      setTreasuryBalance(null);
+      console.warn("Could not fetch treasury balance", err);
+    }
+
+    // Fetch ERC20 token balance for treasury
+  await fetchTreasuryTokenBalance(prov, TOKEN_ADDRESS);
+
+    // Check contract address validity
+    if (!ethers.isAddress(CONTRACT_ADDRESS)) {
+      // If it's an ENS name, ethers.isAddress will return false
+      if (CONTRACT_ADDRESS.endsWith('.eth')) {
+        alert("ENS names are not supported for contract address. Please use a valid Ethereum address.");
+        return;
+      } else {
+        alert("Invalid contract address. Please set a valid Ethereum address in NEXT_PUBLIC_DAO_CONTRACT.");
+        return;
+      }
+    }
 
     const c = new ethers.Contract(CONTRACT_ADDRESS, contractAbi, signer);
     setContract(c);
@@ -238,11 +289,11 @@ export default function DAODashboard() {
 
   // Student confirms enrollment -> must approve token first for price
   async function confirmEnrollment(course) {
-    if (!contract || !tokenAddress) return;
+    if (!contract || !TOKEN_ADDRESS) return;
     try {
       // get price from course.price (string of number in wei)
       const priceWei = course.price;
-      const token = new ethers.Contract(tokenAddress, [
+      const token = new ethers.Contract(TOKEN_ADDRESS, [
         // minimal ABI for approve
         "function approve(address spender, uint256 amount) public returns (bool)",
       ], signer);
@@ -286,7 +337,7 @@ export default function DAODashboard() {
 
   // Bonus distribution by board
   async function distributeBonusByRating(courseId, amountTokens) {
-    if (!contract || !tokenAddress) return;
+  if (!contract || !TOKEN_ADDRESS) return;
     try {
       const amountWei = ethers.parseUnits(String(amountTokens), 18);
       const tx = await contract.distributeBonusByRating(courseId, amountWei);
@@ -325,6 +376,13 @@ export default function DAODashboard() {
     }
   }, []);
 
+  // Update token balance if tokenAddress changes and wallet is connected
+  useEffect(() => {
+    if (provider && tokenAddress) {
+      fetchTreasuryTokenBalance(provider, tokenAddress);
+    }
+  }, [provider, tokenAddress, fetchTreasuryTokenBalance]);
+
   // Listen to events for new courses/proposals
   useEffect(() => {
     if (!contract) return;
@@ -356,7 +414,17 @@ export default function DAODashboard() {
 
   return (
     <div className="p-6 max-w-6xl mx-auto">
-      <h1 className="text-3xl font-bold mb-4">DAO Course Platform — Frontend</h1>
+      <h1 className="text-3xl font-bold mb-4">Hogeschool Utrecht DAO</h1>
+      <div className="mb-4 p-4 border rounded bg-gray-50 flex flex-col md:flex-row justify-between items-center gap-2">
+        <div>
+          <span className="font-semibold">Treasury ETH Balance:</span>
+          <span className="font-mono text-lg ml-2">{treasuryBalance !== null ? `${treasuryBalance} ETH` : "-"}</span>
+        </div>
+        <div>
+          <span className="font-semibold">Treasury Token Balance:</span>
+          <span className="font-mono text-lg ml-2">{treasuryTokenBalance !== null ? treasuryTokenBalance : "-"}</span>
+        </div>
+      </div>
 
       {!account ? (
         <div>
@@ -374,7 +442,7 @@ export default function DAODashboard() {
             </div>
             <div>
               <div className="text-sm text-gray-600">Payment token</div>
-              <div className="font-mono">{tokenAddress || "-"}</div>
+              <div className="font-mono">{tokenAddress || TOKEN_ADDRESS || "-"}</div>
             </div>
           </div>
 

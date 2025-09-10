@@ -1,6 +1,5 @@
-const MyToken = artifacts.require("MyToken");
+const Token = artifacts.require("Token");
 
 module.exports = function (deployer) {
-  deployer.deploy(MyToken, "MyToken", "MYT", 100000);
+  deployer.deploy(Token, "HUToken", "HUT", 100000);
 };
-// --- IGNORE -
