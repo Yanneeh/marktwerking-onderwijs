@@ -65,8 +65,9 @@ export default function DAODashboard() {
   const [courses, setCourses] = useState([]);
   const [createCourseForm, setCreateCourseForm] = useState({ title: "", price: "0", teachers: "", shares: "" });
 
-  const [selectedCourse, setSelectedCourse] = useState(null);
+  // Removed unused selectedCourse and setSelectedCourse
   const [enrollmentStatus, setEnrollmentStatus] = useState({}); // courseId -> enrollment info
+  // enrollmentStatus is now used for tracking enrollment state per course
   const [tokenAddress, setTokenAddress] = useState(null);
 
   // Helper: connect wallet
@@ -267,6 +268,7 @@ export default function DAODashboard() {
     try {
       const tx = await contract.applyToCourse(courseId);
       await tx.wait();
+      setEnrollmentStatus(prev => ({ ...prev, [courseId]: { status: "applied" } }));
       alert("Applied to course");
     } catch (err) {
       console.error(err);
@@ -280,6 +282,7 @@ export default function DAODashboard() {
     try {
       const tx = await contract.teacherVoteOnEnrollment(courseId, studentAddr, support);
       await tx.wait();
+      setEnrollmentStatus(prev => ({ ...prev, [courseId]: { ...prev[courseId], teacherVote: support ? "approved" : "rejected" } }));
       alert("Teacher vote recorded");
     } catch (err) {
       console.error(err);
@@ -302,6 +305,7 @@ export default function DAODashboard() {
       await tx1.wait();
       const tx2 = await contract.confirmEnrollment(course.id);
       await tx2.wait();
+      setEnrollmentStatus(prev => ({ ...prev, [course.id]: { ...prev[course.id], status: "confirmed" } }));
       alert("Enrollment confirmed and paid");
     } catch (err) {
       console.error(err);
@@ -510,7 +514,25 @@ export default function DAODashboard() {
                     {role === "STUDENT" && <button className="px-2 py-1 bg-green-600 text-white rounded" onClick={()=>applyToCourse(c.id)}>Apply</button>}
                     {(role === "TEACHER" || role === "BOARD") && <button className="px-2 py-1 bg-red-600 text-white rounded" onClick={()=>removeCourse(c.id)}>Remove</button>}
                     {role === "STUDENT" && <button className="px-2 py-1 bg-yellow-600 text-white rounded" onClick={()=>confirmEnrollment(c)}>Confirm & Pay</button>}
+                    {/* Enrollment status display for students and teachers */}
+                    {(role === "STUDENT" || role === "TEACHER") && enrollmentStatus[c.id] && (
+                      <span className="ml-2 text-xs text-gray-700">Status: {enrollmentStatus[c.id].status || "applied"} {enrollmentStatus[c.id].teacherVote && ` (Teacher: ${enrollmentStatus[c.id].teacherVote})`}</span>
+                    )}
                   </div>
+                  {/* Teacher voting UI */}
+                  {role === "TEACHER" && (
+                    <div className="mt-2">
+                      <input placeholder="Student address" id={`vote_student_${c.id}`} className="p-2 border rounded mr-2" />
+                      <button className="px-2 py-1 bg-blue-600 text-white rounded mr-2" onClick={() => {
+                        const studentAddr = document.getElementById(`vote_student_${c.id}`).value;
+                        teacherVoteOnEnrollment(c.id, studentAddr, true);
+                      }}>Vote For Enrollment</button>
+                      <button className="px-2 py-1 bg-red-600 text-white rounded" onClick={() => {
+                        const studentAddr = document.getElementById(`vote_student_${c.id}`).value;
+                        teacherVoteOnEnrollment(c.id, studentAddr, false);
+                      }}>Vote Against Enrollment</button>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
