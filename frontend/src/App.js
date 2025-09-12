@@ -378,7 +378,7 @@ export default function DAODashboard() {
     if (window.ethereum && !provider) {
       // do nothing until user clicks connect for safety
     }
-  }, []);
+  }, [provider]);
 
   // Update token balance if tokenAddress changes and wallet is connected
   useEffect(() => {
