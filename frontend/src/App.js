@@ -68,7 +68,7 @@ export function DAODashboard() {
         let symbol = "HUT";
         try {
           symbol = await tokenContract.symbol();
-        } catch {}
+        } catch { }
         setTreasuryTokenBalance(`${ethers.formatUnits(bal, 18)} ${symbol}`);
       } catch (err) {
         setTreasuryTokenBalance(null);
@@ -125,17 +125,17 @@ export function DAODashboard() {
     }
 
     // Fetch ERC20 token balance for treasury
-  await fetchTreasuryTokenBalance(prov, TOKEN_ADDRESS);
+    await fetchTreasuryTokenBalance(prov, TOKEN_ADDRESS);
 
     // Check contract address validity
     if (!ethers.isAddress(CONTRACT_ADDRESS)) {
       // If it's an ENS name, ethers.isAddress will return false
       if (CONTRACT_ADDRESS.endsWith('.eth')) {
-  showToast("ENS names are not supported for contract address. Please use a valid Ethereum address.", "error");
-  return;
+        showToast("ENS names are not supported for contract address. Please use a valid Ethereum address.", "error");
+        return;
       } else {
-  showToast("Invalid contract address. Please set a valid Ethereum address in NEXT_PUBLIC_DAO_CONTRACT.", "error");
-  return;
+        showToast("Invalid contract address. Please set a valid Ethereum address in NEXT_PUBLIC_DAO_CONTRACT.", "error");
+        return;
       }
     }
 
@@ -244,17 +244,17 @@ export function DAODashboard() {
 
   // Create admission proposal
   async function createProposal() {
-  if (!contract) return showToast("Not connected", "error");
-  if (!ethers.isAddress(newProposal.candidate)) return showToast("Invalid address", "error");
+    if (!contract) return showToast("Not connected", "error");
+    if (!ethers.isAddress(newProposal.candidate)) return showToast("Invalid address", "error");
     const roleEnum = { BOARD: 1, TEACHER: 2, STUDENT: 3 };
     try {
       const tx = await contract.createAdmissionProposal(newProposal.candidate, roleEnum[newProposal.role]);
       await tx.wait();
-  showToast("Proposal created", "success");
+      showToast("Proposal created", "success");
       await loadProposalsFromEvents(contract);
     } catch (err) {
       console.error(err);
-  showToast("Create proposal failed: " + (err?.reason || err.message || err), "error");
+      showToast("Create proposal failed: " + (err?.reason || err.message || err), "error");
     }
   }
 
@@ -264,10 +264,10 @@ export function DAODashboard() {
     try {
       const tx = await contract.castVote(proposalId, support);
       await tx.wait();
-  showToast("Voted", "success");
+      showToast("Voted", "success");
     } catch (err) {
       console.error(err);
-  showToast("Vote failed: " + (err?.reason || err.message || err), "error");
+      showToast("Vote failed: " + (err?.reason || err.message || err), "error");
     }
   }
 
@@ -276,11 +276,11 @@ export function DAODashboard() {
     try {
       const tx = await contract.executeProposal(proposalId);
       await tx.wait();
-  showToast("Executed", "success");
+      showToast("Executed", "success");
       await loadMembers(contract);
     } catch (err) {
       console.error(err);
-  showToast("Execute failed: " + (err?.reason || err.message || err), "error");
+      showToast("Execute failed: " + (err?.reason || err.message || err), "error");
     }
   }
 
@@ -293,11 +293,11 @@ export function DAODashboard() {
       const price = ethers.parseUnits(createCourseForm.price || "0", 18);
       const tx = await contract.createCourse(createCourseForm.title, price, teachers, shares);
       await tx.wait();
-  showToast("Course created", "success");
+      showToast("Course created", "success");
       await loadEventsAndCourses(contract);
     } catch (err) {
       console.error(err);
-  showToast("Create course failed: " + (err?.reason || err.message || err), "error");
+      showToast("Create course failed: " + (err?.reason || err.message || err), "error");
     }
   }
 
@@ -306,11 +306,11 @@ export function DAODashboard() {
     try {
       const tx = await contract.removeCourse(courseId);
       await tx.wait();
-  showToast("Course removed", "success");
+      showToast("Course removed", "success");
       await loadEventsAndCourses(contract);
     } catch (err) {
       console.error(err);
-  showToast("Remove failed: " + (err?.reason || err.message || err), "error");
+      showToast("Remove failed: " + (err?.reason || err.message || err), "error");
     }
   }
 
@@ -321,10 +321,10 @@ export function DAODashboard() {
       const tx = await contract.applyToCourse(courseId);
       await tx.wait();
       setEnrollmentStatus(prev => ({ ...prev, [courseId]: { status: "applied" } }));
-  showToast("Applied to course", "success");
+      showToast("Applied to course", "success");
     } catch (err) {
       console.error(err);
-  showToast("Apply failed: " + (err?.reason || err.message || err), "error");
+      showToast("Apply failed: " + (err?.reason || err.message || err), "error");
     }
   }
 
@@ -335,10 +335,10 @@ export function DAODashboard() {
       const tx = await contract.teacherVoteOnEnrollment(courseId, studentAddr, support);
       await tx.wait();
       setEnrollmentStatus(prev => ({ ...prev, [courseId]: { ...prev[courseId], teacherVote: support ? "approved" : "rejected" } }));
-  showToast("Teacher vote recorded", "success");
+      showToast("Teacher vote recorded", "success");
     } catch (err) {
       console.error(err);
-  showToast("Teacher vote failed: " + (err?.reason || err.message || err), "error");
+      showToast("Teacher vote failed: " + (err?.reason || err.message || err), "error");
     }
   }
 
@@ -358,10 +358,10 @@ export function DAODashboard() {
       const tx2 = await contract.confirmEnrollment(course.id);
       await tx2.wait();
       setEnrollmentStatus(prev => ({ ...prev, [course.id]: { ...prev[course.id], status: "confirmed" } }));
-  showToast("Enrollment confirmed and paid", "success");
+      showToast("Enrollment confirmed and paid", "success");
     } catch (err) {
       console.error(err);
-  showToast("Confirm enrollment failed: " + (err?.reason || err.message || err), "error");
+      showToast("Confirm enrollment failed: " + (err?.reason || err.message || err), "error");
     }
   }
 
@@ -371,10 +371,10 @@ export function DAODashboard() {
     try {
       const tx = await contract.completeCourseAndDistribute(courseId, studentAddr);
       await tx.wait();
-  showToast("Course completed and funds distributed", "success");
+      showToast("Course completed and funds distributed", "success");
     } catch (err) {
       console.error(err);
-  showToast("Complete failed: " + (err?.reason || err.message || err), "error");
+      showToast("Complete failed: " + (err?.reason || err.message || err), "error");
     }
   }
 
@@ -384,24 +384,24 @@ export function DAODashboard() {
     try {
       const tx = await contract.giveRating(courseId, teacherAddr, ratingValue);
       await tx.wait();
-  showToast("Rating submitted", "success");
+      showToast("Rating submitted", "success");
     } catch (err) {
       console.error(err);
-  showToast("Rating failed: " + (err?.reason || err.message || err), "error");
+      showToast("Rating failed: " + (err?.reason || err.message || err), "error");
     }
   }
 
   // Bonus distribution by board
   async function distributeBonusByRating(courseId, amountTokens) {
-  if (!contract || !TOKEN_ADDRESS) return;
+    if (!contract || !TOKEN_ADDRESS) return;
     try {
       const amountWei = ethers.parseUnits(String(amountTokens), 18);
       const tx = await contract.distributeBonusByRating(courseId, amountWei);
       await tx.wait();
-  showToast("Bonus distributed", "success");
+      showToast("Bonus distributed", "success");
     } catch (err) {
       console.error(err);
-  showToast("Bonus failed: " + (err?.reason || err.message || err), "error");
+      showToast("Bonus failed: " + (err?.reason || err.message || err), "error");
     }
   }
 
@@ -412,10 +412,10 @@ export function DAODashboard() {
       const amountWei = ethers.parseUnits(String(amountTokens), 18);
       const tx = await contract.boardPayout(to, amountWei);
       await tx.wait();
-  showToast("Payout executed", "success");
+      showToast("Payout executed", "success");
     } catch (err) {
       console.error(err);
-  showToast("Payout failed: " + (err?.reason || err.message || err), "error");
+      showToast("Payout failed: " + (err?.reason || err.message || err), "error");
     }
   }
 
@@ -475,7 +475,7 @@ export function DAODashboard() {
         contract.off("CourseCreated", onCourseCreated);
         contract.off("ProposalCreated", onProposalCreated);
         contract.off("Voted", onVoted);
-      } catch (e) {}
+      } catch (e) { }
     };
   }, [contract, provider]);
 
@@ -496,7 +496,7 @@ export function DAODashboard() {
 
   const Welcome = (
     <div className="max-w-4xl mx-auto text-center mt-16">
-      <h1 className="text-4xl md:text-5xl font-bold">CourseDAO</h1>
+      <img src={process.env.PUBLIC_URL + "/dao-logo-text.png"} alt="CourseDAO Logo" className="mx-auto h-32 md:h-48" />
       <p className="mt-3 text-gray-600">Collaborative course platform with proposals, treasury, and role-based workflows.</p>
       <div className="mt-8">
         <button className="btn text-base md:text-lg px-8 py-3" onClick={connectWallet}>Connect to MetaMask</button>
@@ -513,12 +513,12 @@ export function DAODashboard() {
       <label className="block text-sm">Your address</label>
       <input className="input mb-2" value={account} disabled />
       <label className="block text-sm mt-2">Role you want to request</label>
-      <select className="input" value={newProposal.role} onChange={e=>setNewProposal({...newProposal, role: e.target.value, candidate: account})}>
+      <select className="input" value={newProposal.role} onChange={e => setNewProposal({ ...newProposal, role: e.target.value, candidate: account })}>
         <option value="BOARD">BOARD</option>
         <option value="TEACHER">TEACHER</option>
         <option value="STUDENT">STUDENT</option>
       </select>
-      <button className="btn mt-4 w-full" onClick={()=>createProposal()}>Submit Admission Proposal</button>
+      <button className="btn mt-4 w-full" onClick={() => createProposal()}>Submit Admission Proposal</button>
     </div>
   );
 
@@ -526,7 +526,7 @@ export function DAODashboard() {
     <header className="max-w-6xl mx-auto px-6 pt-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl md:text-3xl font-bold">CourseDAO</h1>
+          <img src={process.env.PUBLIC_URL + "/dao-logo-text.png"} alt="CourseDAO Logo" className="h-20 md:h-28" />
           <div className="text-xs text-gray-600 mt-1">{roleTag}</div>
         </div>
         <div className="flex items-center gap-3">
@@ -540,7 +540,7 @@ export function DAODashboard() {
       {account && role !== 'NONE' && (
         <div className="mt-4 tabs">
           {TABS.map(t => (
-            <button key={t} className={`tab ${activeTab === t ? 'tab-active' : ''}`} onClick={()=>setActiveTab(t)}>{t}</button>
+            <button key={t} className={`tab ${activeTab === t ? 'tab-active' : ''}`} onClick={() => setActiveTab(t)}>{t}</button>
           ))}
         </div>
       )}
@@ -572,8 +572,8 @@ export function DAODashboard() {
         }</span></div>
         <div className="mt-3">
           <div className="vote-bar">
-            <div className="vote-for" style={{width: `${forPct}%`}} />
-            <div className="vote-against" style={{width: `${againstPct}%`}} />
+            <div className="vote-for" style={{ width: `${forPct}%` }} />
+            <div className="vote-against" style={{ width: `${againstPct}%` }} />
           </div>
           <div className="mt-1 text-xs text-gray-700 flex justify-between">
             <span>For: {counts.for}</span>
@@ -581,9 +581,9 @@ export function DAODashboard() {
           </div>
         </div>
         <div className="mt-3 flex flex-wrap gap-2">
-          <button className="btn-outline" disabled={!open} onClick={()=>castVote(p.id, true)}>Vote For</button>
-          <button className="btn-outline" disabled={!open} onClick={()=>castVote(p.id, false)}>Vote Against</button>
-          <button className="btn-outline" onClick={()=>executeProposal(p.id)}>Execute</button>
+          <button className="btn-outline" disabled={!open} onClick={() => castVote(p.id, true)}>Vote For</button>
+          <button className="btn-outline" disabled={!open} onClick={() => castVote(p.id, false)}>Vote Against</button>
+          <button className="btn-outline" onClick={() => executeProposal(p.id)}>Execute</button>
         </div>
         <div className="mt-2 text-xs text-gray-500">Start: {p.start?.toLocaleString?.() || '-'} • End: {p.end?.toLocaleString?.() || '-'}</div>
       </div>
@@ -595,9 +595,9 @@ export function DAODashboard() {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="card">
           <div className="section-title">Members</div>
-          <div className="text-sm">Boards ({boards.length}): {boards.map(b=> <span key={b} className="mr-2 badge">{short(b)}</span>)}</div>
-          <div className="text-sm mt-1">Teachers ({teachers.length}): {teachers.map(t=> <span key={t} className="mr-2 badge">{short(t)}</span>)}</div>
-          <div className="text-sm mt-1">Students ({students.length}): {students.map(s=> <span key={s} className="mr-2 badge">{short(s)}</span>)}</div>
+          <div className="text-sm">Boards ({boards.length}): {boards.map(b => <span key={b} className="mr-2 badge">{short(b)}</span>)}</div>
+          <div className="text-sm mt-1">Teachers ({teachers.length}): {teachers.map(t => <span key={t} className="mr-2 badge">{short(t)}</span>)}</div>
+          <div className="text-sm mt-1">Students ({students.length}): {students.map(s => <span key={s} className="mr-2 badge">{short(s)}</span>)}</div>
         </div>
         <div className="card">
           <div className="section-title">Payment token</div>
@@ -606,9 +606,9 @@ export function DAODashboard() {
         <div className="card">
           <div className="section-title">Quick actions</div>
           {!account && <button className="btn w-full" onClick={connectWallet}>Connect</button>}
-          {role === 'BOARD' && <a href="#treasury" className="btn-outline w-full text-center" onClick={()=>setActiveTab('Treasury')}>Open Treasury</a>}
-          {role === 'TEACHER' && <a href="#courses" className="btn-outline w-full text-center" onClick={()=>setActiveTab('Courses')}>Create Course</a>}
-          {role === 'STUDENT' && <a href="#courses" className="btn-outline w-full text-center" onClick={()=>setActiveTab('Courses')}>Browse Courses</a>}
+          {role === 'BOARD' && <a href="#treasury" className="btn-outline w-full text-center" onClick={() => setActiveTab('Treasury')}>Open Treasury</a>}
+          {role === 'TEACHER' && <a href="#courses" className="btn-outline w-full text-center" onClick={() => setActiveTab('Courses')}>Create Course</a>}
+          {role === 'STUDENT' && <a href="#courses" className="btn-outline w-full text-center" onClick={() => setActiveTab('Courses')}>Browse Courses</a>}
         </div>
       </div>
 
@@ -617,9 +617,9 @@ export function DAODashboard() {
           <div className="card">
             <div className="section-title">Create Admission Proposal</div>
             <label className="block text-sm">Candidate address</label>
-            <input className="input" value={newProposal.candidate} onChange={e=>setNewProposal({...newProposal, candidate: e.target.value})} />
+            <input className="input" value={newProposal.candidate} onChange={e => setNewProposal({ ...newProposal, candidate: e.target.value })} />
             <label className="block text-sm mt-2">Role</label>
-            <select className="input" value={newProposal.role} onChange={e=>setNewProposal({...newProposal, role: e.target.value})}>
+            <select className="input" value={newProposal.role} onChange={e => setNewProposal({ ...newProposal, role: e.target.value })}>
               <option value="BOARD">BOARD</option>
               <option value="TEACHER">TEACHER</option>
               <option value="STUDENT">STUDENT</option>
@@ -642,7 +642,7 @@ export function DAODashboard() {
       <div className="card">
         <div className="section-title">All Proposals</div>
         {proposals.length === 0 && <div className="text-sm text-gray-500">No proposals yet</div>}
-        {proposals.sort((a,b)=>a.id-b.id).map(p => <ProposalCard key={p.id} p={p} />)}
+        {proposals.sort((a, b) => a.id - b.id).map(p => <ProposalCard key={p.id} p={p} />)}
       </div>
     </div>
   );
@@ -653,10 +653,10 @@ export function DAODashboard() {
         <div className="card">
           <div className="section-title">Create Course</div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <input placeholder="Title" className="input" value={createCourseForm.title} onChange={e=>setCreateCourseForm({...createCourseForm, title: e.target.value})} />
-            <input placeholder="Price (tokens)" className="input" value={createCourseForm.price} onChange={e=>setCreateCourseForm({...createCourseForm, price: e.target.value})} />
-            <input placeholder="Teachers (comma-separated addresses)" className="input" value={createCourseForm.teachers} onChange={e=>setCreateCourseForm({...createCourseForm, teachers: e.target.value})} />
-            <input placeholder="Shares (comma-separated, sum=10000)" className="input" value={createCourseForm.shares} onChange={e=>setCreateCourseForm({...createCourseForm, shares: e.target.value})} />
+            <input placeholder="Title" className="input" value={createCourseForm.title} onChange={e => setCreateCourseForm({ ...createCourseForm, title: e.target.value })} />
+            <input placeholder="Price (tokens)" className="input" value={createCourseForm.price} onChange={e => setCreateCourseForm({ ...createCourseForm, price: e.target.value })} />
+            <input placeholder="Teachers (comma-separated addresses)" className="input" value={createCourseForm.teachers} onChange={e => setCreateCourseForm({ ...createCourseForm, teachers: e.target.value })} />
+            <input placeholder="Shares (comma-separated, sum=10000)" className="input" value={createCourseForm.shares} onChange={e => setCreateCourseForm({ ...createCourseForm, shares: e.target.value })} />
           </div>
           <div className="mt-3">
             <button className="btn" onClick={createCourse}>Create</button>
@@ -672,11 +672,11 @@ export function DAODashboard() {
             <div key={c.id} className="card">
               <div className="font-semibold">{c.title} <span className="text-xs text-gray-500">(ID: {c.id})</span></div>
               <div className="text-sm mt-1">Price: {ethers.formatUnits(c.price || "0", 18)} tokens</div>
-              <div className="text-sm mt-1">Teachers: {c.teachers.map(t=> short(t)).join(", ")}</div>
+              <div className="text-sm mt-1">Teachers: {c.teachers.map(t => short(t)).join(", ")}</div>
               <div className="mt-3 flex flex-wrap gap-2">
-                {role === "STUDENT" && <button className="btn-outline" onClick={()=>applyToCourse(c.id)}>Apply</button>}
-                {(role === "TEACHER" || role === "BOARD") && <button className="btn-outline" onClick={()=>removeCourse(c.id)}>Remove</button>}
-                {role === "STUDENT" && <button className="btn-outline" onClick={()=>confirmEnrollment(c)}>Confirm & Pay</button>}
+                {role === "STUDENT" && <button className="btn-outline" onClick={() => applyToCourse(c.id)}>Apply</button>}
+                {(role === "TEACHER" || role === "BOARD") && <button className="btn-outline" onClick={() => removeCourse(c.id)}>Remove</button>}
+                {role === "STUDENT" && <button className="btn-outline" onClick={() => confirmEnrollment(c)}>Confirm & Pay</button>}
                 {(role === "STUDENT" || role === "TEACHER") && enrollmentStatus[c.id] && (
                   <span className="ml-2 text-xs text-gray-700">Status: {enrollmentStatus[c.id].status || "applied"} {enrollmentStatus[c.id].teacherVote && ` (Teacher: ${enrollmentStatus[c.id].teacherVote})`}</span>
                 )}
@@ -701,7 +701,7 @@ export function DAODashboard() {
                 {c.teachers.map(t => (
                   <div key={t} className="flex items-center gap-2 mt-1">
                     <span className="font-mono text-xs">{short(t)}</span>
-                    <select className="input" onChange={(e)=>giveRating(c.id, t, Number(e.target.value))} defaultValue="0">
+                    <select className="input" onChange={(e) => giveRating(c.id, t, Number(e.target.value))} defaultValue="0">
                       <option value="0">Rate</option>
                       <option value="1">1</option>
                       <option value="2">2</option>
@@ -715,7 +715,7 @@ export function DAODashboard() {
               <div className="mt-3">
                 <div className="flex gap-2">
                   <input placeholder="Complete for student address" id={`complete_${c.id}`} className="input" />
-                  <button className="btn-outline" onClick={()=>{
+                  <button className="btn-outline" onClick={() => {
                     const studentAddr = document.getElementById(`complete_${c.id}`).value;
                     completeCourseAndDistribute(c.id, studentAddr);
                   }}>Complete & Distribute</button>
