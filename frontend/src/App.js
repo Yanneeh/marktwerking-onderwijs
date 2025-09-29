@@ -557,7 +557,7 @@ export function DAODashboard() {
     }
 
     initReadOnly();
-  }, []);
+  }, [fetchTreasuryTokenBalance]);
 
   // Update token balance if tokenAddress changes and wallet is connected
   useEffect(() => {
