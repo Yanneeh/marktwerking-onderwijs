@@ -100,6 +100,7 @@ export function DAODashboard() {
 
   // Removed unused selectedCourse and setSelectedCourse
   const [enrollmentStatus, setEnrollmentStatus] = useState({}); // courseId -> enrollment info
+  const [enrollments, setEnrollments] = useState({}); // courseId -> { studentAddr: { exists, votesFor, votesAgainst, teacherVotes: {t: bool}, acceptedByTeachers, enrolled } }
   // enrollmentStatus is now used for tracking enrollment state per course
   const [tokenAddress, setTokenAddress] = useState(null);
 
@@ -162,6 +163,7 @@ export function DAODashboard() {
     // load initial data
     await loadMembers(c);
     await loadEventsAndCourses(c);
+    await loadEnrollmentEvents(c);
     await loadProposalsFromEvents(c);
   }
 
@@ -183,7 +185,7 @@ export function DAODashboard() {
   // The contract emits CourseCreated(courseId, title, price, teachers[])
   // We'll query past events to build the course list. We also listen for new ones.
   async function loadEventsAndCourses(c) {
-    if (!c || !provider) return;
+    if (!c) return;
     try {
       const filter = c.filters.CourseCreated();
       const logs = await c.queryFilter(filter, 0, "latest");
@@ -220,6 +222,78 @@ export function DAODashboard() {
       setProposals(parsed);
     } catch (err) {
       console.warn("loadProposalsFromEvents err", err);
+    }
+  }
+
+  // Load enrollment-related events and build an in-memory map of enrollment requests
+  async function loadEnrollmentEvents(c) {
+    if (!c) return;
+    try {
+      const appliedFilter = c.filters.AppliedToCourse();
+      const votedFilter = c.filters.TeacherVotedOnEnrollment();
+      const confirmedFilter = c.filters.EnrollmentConfirmed();
+
+      const appliedLogs = await c.queryFilter(appliedFilter, 0, 'latest');
+      const votedLogs = await c.queryFilter(votedFilter, 0, 'latest');
+      const confirmedLogs = await c.queryFilter(confirmedFilter, 0, 'latest');
+
+      const map = {}; // courseId -> student -> enrollment
+
+      // Applied events
+      for (const l of appliedLogs) {
+        const ev = l.args;
+        const cid = Number(ev[0]);
+        const student = ev[1];
+        map[cid] = map[cid] || {};
+        map[cid][student] = map[cid][student] || { exists: true, votesFor: 0, votesAgainst: 0, teacherVotes: {}, acceptedByTeachers: false, enrolled: false };
+      }
+
+      // Teacher votes
+      for (const l of votedLogs) {
+        const ev = l.args;
+        const cid = Number(ev[0]);
+        const teacher = ev[1];
+        const student = ev[2];
+        const support = Boolean(ev[3]);
+        map[cid] = map[cid] || {};
+        map[cid][student] = map[cid][student] || { exists: true, votesFor: 0, votesAgainst: 0, teacherVotes: {}, acceptedByTeachers: false, enrolled: false };
+        // avoid double-counting same teacher (should not happen)
+        if (!map[cid][student].teacherVotes[teacher]) {
+          map[cid][student].teacherVotes[teacher] = support;
+          if (support) map[cid][student].votesFor += 1; else map[cid][student].votesAgainst += 1;
+        }
+      }
+
+      // Confirmed (student paid)
+      for (const l of confirmedLogs) {
+        const ev = l.args;
+        const cid = Number(ev[0]);
+        const student = ev[1];
+        map[cid] = map[cid] || {};
+        map[cid][student] = map[cid][student] || { exists: true, votesFor: 0, votesAgainst: 0, teacherVotes: {}, acceptedByTeachers: false, enrolled: false };
+        map[cid][student].enrolled = true;
+      }
+
+      // derive acceptedByTeachers if we have teacher counts from contract
+      for (const cidStr of Object.keys(map)) {
+        const cid = Number(cidStr);
+        // find course teachers length
+        const course = (courses || []).find(x => Number(x.id) === cid);
+        const totalTeachers = course ? (course.teachers || []).length : 0;
+        for (const student of Object.keys(map[cid])) {
+          const er = map[cid][student];
+          if (totalTeachers > 0) {
+            const votesCast = er.votesFor + er.votesAgainst;
+            if (votesCast === totalTeachers) {
+              er.acceptedByTeachers = er.votesFor > er.votesAgainst;
+            }
+          }
+        }
+      }
+
+      setEnrollments(map);
+    } catch (err) {
+      console.warn('loadEnrollmentEvents err', err);
     }
   }
 
@@ -427,10 +501,63 @@ export function DAODashboard() {
 
   // Initial auto-connect if wallet already connected
   useEffect(() => {
-    if (window.ethereum && !provider) {
-      // do nothing until user clicks connect for safety
+    // Try to initialize a read-only provider & contract so public data (courses/proposals)
+    // is available when visiting the app without explicitly connecting a wallet.
+    async function initReadOnly() {
+      try {
+        // If contract address is not provided, nothing to do
+        if (!CONTRACT_ADDRESS) return;
+
+        // Create a read-only provider: prefer injected window.ethereum if available
+        // (does not request accounts here), otherwise fall back to default provider.
+        let prov;
+        if (window.ethereum) {
+          prov = new ethers.BrowserProvider(window.ethereum);
+        } else {
+          prov = ethers.getDefaultProvider();
+        }
+
+        // Create a read-only contract instance
+        const readContract = new ethers.Contract(CONTRACT_ADDRESS, contractAbi, prov);
+
+        // Update local state (will be replaced by connectWallet when signer is available)
+        setProvider(prov);
+        setContract(readContract);
+
+        // Try to read the payment token configured on the contract (if any)
+        try {
+          const token = await readContract.paymentToken();
+          if (token && ethers.isAddress(token)) {
+            setTokenAddress(token);
+          }
+        } catch (e) {
+          // ignore if contract does not expose paymentToken or call fails
+        }
+
+        // Fetch treasury ETH balance and ERC20 balance (prefer env TOKEN_ADDRESS if set, otherwise contract token)
+        try {
+          const bal = await prov.getBalance(CONTRACT_ADDRESS);
+          setTreasuryBalance(ethers.formatEther(bal));
+        } catch (err) {
+          setTreasuryBalance(null);
+        }
+
+        const tokenToQuery = TOKEN_ADDRESS || (await (async () => { try { return await readContract.paymentToken(); } catch { return null; } })());
+        if (tokenToQuery) {
+          await fetchTreasuryTokenBalance(prov, tokenToQuery);
+        }
+
+        // Load public events so courses/proposals are visible on refresh
+        await loadEventsAndCourses(readContract);
+        await loadProposalsFromEvents(readContract);
+        await loadVotesFromEvents(readContract);
+      } catch (err) {
+        console.warn('initReadOnly failed', err);
+      }
     }
-  }, [provider]);
+
+    initReadOnly();
+  }, []);
 
   // Update token balance if tokenAddress changes and wallet is connected
   useEffect(() => {
@@ -469,12 +596,55 @@ export function DAODashboard() {
     contract.on("CourseCreated", onCourseCreated);
     contract.on("ProposalCreated", onProposalCreated);
     contract.on("Voted", onVoted);
+    // Enrollment related events
+    const onApplied = (courseId, student) => {
+      setEnrollments(prev => {
+        const cid = Number(courseId);
+        const copy = { ...(prev || {}) };
+        copy[cid] = { ...(copy[cid] || {}) };
+        copy[cid][student] = { ...(copy[cid][student] || { exists: true, votesFor: 0, votesAgainst: 0, teacherVotes: {}, acceptedByTeachers: false, enrolled: false }), exists: true };
+        return copy;
+      });
+    };
+
+    const onTeacherVoted = (courseId, teacher, student, support) => {
+      setEnrollments(prev => {
+        const cid = Number(courseId);
+        const copy = { ...(prev || {}) };
+        copy[cid] = { ...(copy[cid] || {}) };
+        copy[cid][student] = { ...(copy[cid][student] || { exists: true, votesFor: 0, votesAgainst: 0, teacherVotes: {}, acceptedByTeachers: false, enrolled: false }) };
+        if (!copy[cid][student].teacherVotes) copy[cid][student].teacherVotes = {};
+        if (!copy[cid][student].teacherVotes[teacher]) {
+          copy[cid][student].teacherVotes[teacher] = support;
+          if (support) copy[cid][student].votesFor = (copy[cid][student].votesFor || 0) + 1;
+          else copy[cid][student].votesAgainst = (copy[cid][student].votesAgainst || 0) + 1;
+        }
+        return copy;
+      });
+    };
+
+    const onConfirmed = (courseId, student) => {
+      setEnrollments(prev => {
+        const cid = Number(courseId);
+        const copy = { ...(prev || {}) };
+        copy[cid] = { ...(copy[cid] || {}) };
+        copy[cid][student] = { ...(copy[cid][student] || { exists: true, votesFor: 0, votesAgainst: 0, teacherVotes: {}, acceptedByTeachers: false, enrolled: false }), enrolled: true };
+        return copy;
+      });
+    };
+
+    contract.on('AppliedToCourse', onApplied);
+    contract.on('TeacherVotedOnEnrollment', onTeacherVoted);
+    contract.on('EnrollmentConfirmed', onConfirmed);
 
     return () => {
       try {
         contract.off("CourseCreated", onCourseCreated);
         contract.off("ProposalCreated", onProposalCreated);
         contract.off("Voted", onVoted);
+        contract.off('AppliedToCourse', onApplied);
+        contract.off('TeacherVotedOnEnrollment', onTeacherVoted);
+        contract.off('EnrollmentConfirmed', onConfirmed);
       } catch (e) { }
     };
   }, [contract, provider]);
@@ -601,7 +771,7 @@ export function DAODashboard() {
         </div>
         <div className="card">
           <div className="section-title">Payment token</div>
-          <div className="font-mono text-sm break-all">{tokenAddress || TOKEN_ADDRESS || '-'}</div>
+          <div className="font-mono text-sm break-all">{TOKEN_ADDRESS || tokenAddress || '-'}</div>
         </div>
         <div className="card">
           <div className="section-title">Quick actions</div>
@@ -637,12 +807,15 @@ export function DAODashboard() {
     </div>
   );
 
+  // Only proposals that are still open (end time in the future)
+  const openProposals = (proposals || []).filter(p => p.end && Date.now() < (p.end instanceof Date ? p.end.getTime() : new Date(p.end).getTime())).sort((a, b) => a.id - b.id);
+
   const ProposalsTab = (
     <div className="max-w-6xl mx-auto px-6 py-6">
       <div className="card">
         <div className="section-title">All Proposals</div>
-        {proposals.length === 0 && <div className="text-sm text-gray-500">No proposals yet</div>}
-        {proposals.sort((a, b) => a.id - b.id).map(p => <ProposalCard key={p.id} p={p} />)}
+        {openProposals.length === 0 && <div className="text-sm text-gray-500">No open proposals</div>}
+        {openProposals.map(p => <ProposalCard key={p.id} p={p} />)}
       </div>
     </div>
   );
@@ -653,9 +826,13 @@ export function DAODashboard() {
         <div className="card">
           <div className="section-title">Create Course</div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <label className="block text-sm">Title</label>
             <input placeholder="Title" className="input" value={createCourseForm.title} onChange={e => setCreateCourseForm({ ...createCourseForm, title: e.target.value })} />
+            <label className="block text-sm">Price (tokens)</label>
             <input placeholder="Price (tokens)" className="input" value={createCourseForm.price} onChange={e => setCreateCourseForm({ ...createCourseForm, price: e.target.value })} />
+            <label className="block text-sm">Teachers (comma-separated addresses)</label>
             <input placeholder="Teachers (comma-separated addresses)" className="input" value={createCourseForm.teachers} onChange={e => setCreateCourseForm({ ...createCourseForm, teachers: e.target.value })} />
+            <label className="block text-sm">Shares (comma-separated, sum=10000)</label>
             <input placeholder="Shares (comma-separated, sum=10000)" className="input" value={createCourseForm.shares} onChange={e => setCreateCourseForm({ ...createCourseForm, shares: e.target.value })} />
           </div>
           <div className="mt-3">
@@ -683,44 +860,61 @@ export function DAODashboard() {
               </div>
               {role === "TEACHER" && (
                 <div className="mt-3">
+                  <div className="text-sm">Enrollment requests:</div>
+                  {((enrollments && enrollments[c.id]) ? Object.keys(enrollments[c.id]) : []).length === 0 && (
+                    <div className="text-xs text-gray-500 mt-2">No pending requests</div>
+                  )}
+                  {enrollments && enrollments[c.id] && Object.entries(enrollments[c.id]).map(([studentAddr, info]) => (
+                    <div key={studentAddr} className="mt-2 card p-2">
+                      <div className="flex items-center justify-between">
+                        <div className="text-sm">{short(studentAddr)} {info.enrolled ? <span className="text-xs text-green-600">(paid)</span> : <span className="text-xs text-yellow-600">(pending)</span>}</div>
+                        <div className="flex gap-2">
+                          <button className="btn-outline" onClick={() => teacherVoteOnEnrollment(c.id, studentAddr, true)}>Approve</button>
+                          <button className="btn-outline" onClick={() => teacherVoteOnEnrollment(c.id, studentAddr, false)}>Reject</button>
+                        </div>
+                      </div>
+                      <div className="text-xs text-gray-600 mt-1">Votes: For {info.votesFor || 0} • Against {info.votesAgainst || 0}</div>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {role === 'STUDENT' && (
+                <div className="mt-3">
+                  <div className="text-sm">Rate teachers:</div>
+                  {c.teachers.map(t => (
+                    <div key={t} className="flex items-center gap-2 mt-1">
+                      <span className="font-mono text-xs">{short(t)}</span>
+                      <select className="input" onChange={(e) => giveRating(c.id, t, Number(e.target.value))} defaultValue="0">
+                        <option value="0">Rate</option>
+                        <option value="1">1</option>
+                        <option value="2">2</option>
+                        <option value="3">3</option>
+                        <option value="4">4</option>
+                        <option value="5">5</option>
+                      </select>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {(
+                // visible only when the connected account is a board member or a teacher of this course
+                account && (
+                  (boards || []).some(b => b?.toLowerCase() === account.toLowerCase()) ||
+                  (c.teachers || []).some(t => t?.toLowerCase() === account.toLowerCase())
+                )
+              ) && (
+                <div className="mt-3">
                   <div className="flex gap-2">
-                    <input placeholder="Student address" id={`vote_student_${c.id}`} className="input" />
-                    <button className="btn-outline" onClick={() => {
-                      const studentAddr = document.getElementById(`vote_student_${c.id}`).value;
-                      teacherVoteOnEnrollment(c.id, studentAddr, true);
-                    }}>Vote For</button>
-                    <button className="btn-outline" onClick={() => {
-                      const studentAddr = document.getElementById(`vote_student_${c.id}`).value;
-                      teacherVoteOnEnrollment(c.id, studentAddr, false);
-                    }}>Vote Against</button>
+                    <input placeholder="Complete for student address" id={`complete_${c.id}`} className="input" />
+                    <button style={{ flexShrink: 0 }} className="btn-outline" onClick={() => {
+                      const studentAddr = document.getElementById(`complete_${c.id}`).value;
+                      completeCourseAndDistribute(c.id, studentAddr);
+                    }}>Distribute & Complete</button>
                   </div>
                 </div>
               )}
-              <div className="mt-3">
-                <div className="text-sm">Rate teachers:</div>
-                {c.teachers.map(t => (
-                  <div key={t} className="flex items-center gap-2 mt-1">
-                    <span className="font-mono text-xs">{short(t)}</span>
-                    <select className="input" onChange={(e) => giveRating(c.id, t, Number(e.target.value))} defaultValue="0">
-                      <option value="0">Rate</option>
-                      <option value="1">1</option>
-                      <option value="2">2</option>
-                      <option value="3">3</option>
-                      <option value="4">4</option>
-                      <option value="5">5</option>
-                    </select>
-                  </div>
-                ))}
-              </div>
-              <div className="mt-3">
-                <div className="flex gap-2">
-                  <input placeholder="Complete for student address" id={`complete_${c.id}`} className="input" />
-                  <button className="btn-outline" onClick={() => {
-                    const studentAddr = document.getElementById(`complete_${c.id}`).value;
-                    completeCourseAndDistribute(c.id, studentAddr);
-                  }}>Complete & Distribute</button>
-                </div>
-              </div>
+
             </div>
           ))}
         </div>
@@ -735,6 +929,42 @@ export function DAODashboard() {
     const set = new Set([...boards, ...teachers, ...students]);
     return Array.from(set);
   }, [boards, teachers, students]);
+
+  // Resolve human-readable names for participants (ENS or role fallback)
+  const [participantNames, setParticipantNames] = useState({}); // { lowerAddr: name }
+  useEffect(() => {
+    if (!allParticipants || allParticipants.length === 0) return;
+    let mounted = true;
+    async function resolveNames() {
+      const map = {};
+      for (const addr of allParticipants) {
+        if (!addr) continue;
+        const key = addr.toLowerCase();
+        let name = '';
+        // try ENS lookup if provider supports it
+        try {
+          if (provider && typeof provider.lookupAddress === 'function') {
+            const ens = await provider.lookupAddress(addr);
+            if (ens) name = ens;
+          }
+        } catch (e) {
+          // ignore lookup errors
+        }
+
+        // fallback to a role-based label if no ENS name found
+        if (!name) {
+          if ((boards || []).some(b => b?.toLowerCase() === key)) name = 'Board';
+          else if ((teachers || []).some(t => t?.toLowerCase() === key)) name = 'Teacher';
+          else if ((students || []).some(s => s?.toLowerCase() === key)) name = 'Student';
+        }
+
+        map[key] = name;
+      }
+      if (mounted) setParticipantNames(map);
+    }
+    resolveNames();
+    return () => { mounted = false; };
+  }, [allParticipants, provider, boards, teachers, students]);
 
   // Treasury payout state
   const [selectedRecipient, setSelectedRecipient] = useState("");
@@ -760,7 +990,7 @@ export function DAODashboard() {
         </div>
         <div className="card">
           <div className="section-title">Payment Token</div>
-          <div className="font-mono text-sm break-all">{tokenAddress || TOKEN_ADDRESS || '-'}</div>
+          <div className="font-mono text-sm break-all">{TOKEN_ADDRESS || tokenAddress || '-'}</div>
         </div>
       </div>
 
@@ -778,9 +1008,13 @@ export function DAODashboard() {
                 onChange={e => setSelectedRecipient(e.target.value)}
               >
                 <option value="">Select recipient</option>
-                {allParticipants.map(addr => (
-                  <option key={addr} value={addr}>{short(addr)} ({addr})</option>
-                ))}
+                {allParticipants.map(addr => {
+                  const key = (addr || '').toLowerCase();
+                  const name = participantNames[key];
+                  return (
+                    <option key={addr} value={addr}>{name ? `${name} • ${short(addr)}` : short(addr)}</option>
+                  );
+                })}
               </select>
               <label className="block text-sm mt-2">Amount (tokens)</label>
               <input

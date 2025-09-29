@@ -54,9 +54,11 @@ contract DAOCoursePlatform is Ownable {
         mapping(address => bool) voted;
     }
 
-    uint256 public proposalDuration = 3 days;
+    uint256 public proposalDuration = 3 minutes;
     uint256 private _nextProposalId = 1;
     mapping(uint256 => Proposal) private _proposals;
+    // track active proposal per candidate (proposal id) to prevent multiple open proposals
+    mapping(address => uint256) private _activeProposal;
 
     // --- Course management ---
     struct Course {
@@ -150,6 +152,17 @@ contract DAOCoursePlatform is Ownable {
         require(candidate != address(0), "Invalid candidate");
         require(roleToAdd == Role.BOARD || roleToAdd == Role.TEACHER || roleToAdd == Role.STUDENT, "Invalid role");
 
+        // Prevent candidate having more than one active (not yet closed/executed) proposal
+        uint256 existingPid = _activeProposal[candidate];
+        if (existingPid != 0) {
+            Proposal storage op = _proposals[existingPid];
+            // if existing proposal is still within its voting window and not executed -> reject
+            if (!op.executed && block.timestamp <= op.end) {
+                revert("Candidate already has an active proposal");
+            }
+            // otherwise the previous proposal is closed/executed and we allow creating a new one
+        }
+
         // Validate that candidate isn't already in that role
         if (roleToAdd == Role.BOARD) require(!_boards.contains(candidate), "Already board");
         if (roleToAdd == Role.TEACHER) require(!_teachers.contains(candidate), "Already teacher");
@@ -165,6 +178,8 @@ contract DAOCoursePlatform is Ownable {
         p.executed = false;
 
         emit ProposalCreated(pid, candidate, roleToAdd, p.start, p.end);
+        // mark as active proposal for the candidate
+        _activeProposal[candidate] = pid;
         return pid;
     }
 
@@ -214,6 +229,11 @@ contract DAOCoursePlatform is Ownable {
             else if (p.roleToAdd == Role.TEACHER) _teachers.add(p.candidate);
             else if (p.roleToAdd == Role.STUDENT) _students.add(p.candidate);
             success = true;
+        }
+
+        // clear active proposal entry for candidate so they may have new proposals later
+        if (_activeProposal[p.candidate] == proposalId) {
+            _activeProposal[p.candidate] = 0;
         }
 
         emit ProposalExecuted(proposalId, success);
